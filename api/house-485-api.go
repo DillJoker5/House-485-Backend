@@ -38,12 +38,32 @@ func main() {
 	fmt.Printf("Connected to the database!\n")
 
 	// Read from House Table
+	houseCount, houseErr := readHouseTable()
+	if houseErr != nil {
+		log.Fatal("Error reading house table:", houseErr.Error())
+	}
+	fmt.Printf("Read %d row(s) successfully", houseCount)
 
 	// Read from User Table
+	userCount, userErr := readUserTable()
+	if userErr != nil {
+		log.Fatal("Error reading user table:", userErr.Error())
+	}
+	fmt.Printf("Read %d row(s) successfully", userCount)
 
 	// Create new House in House Table
+	newHouse, newHouseErr := createNewHouse()
+	if newHouseErr != nil {
+		log.Fatal("Error creating new house:", newHouseErr.Error())
+	}
+	fmt.Printf("Created new house successfully", newHouse)
 
 	// Create new User in User Table
+	newUser, newUserErr := createNewUser()
+	if newUserErr != nil {
+		log.Fatal("Error creating new user:", newUserErr.Error())
+	}
+	fmt.Printf("Created new user successfully", newUser)
 }
 
 func mwCheck(f func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +79,7 @@ func readHouseTable() (int, error) {
 		return -1, err
 	}
 
-	tsqlQuery := fmt.Sprintf("SELECT * FROM HouseTable")
+	tsqlQuery := fmt.Sprintf("SELECT * FROM House")
 
 	// Execute query
 	rows, err := db.QueryContext(ctx, tsqlQuery)
@@ -87,9 +107,82 @@ func readHouseTable() (int, error) {
 }
 
 func readUserTable() (int, error) {
-	return -1, nil
+	ctx := context.Background()
+
+	// Verify database is running
+	err := db.PingContext(ctx)
+	if err != nil {
+		return -1, err
+	}
+
+	tsqlQuery := fmt.Sprintf("SELECT * FROM Users")
+
+	// Execute query
+	rows, err := db.QueryContext(ctx, tsqlQuery)
+	if err != nil {
+		return -1, err
+	}
+
+	defer rows.Close()
+
+	var count int
+	for rows.Next() {
+		var userid int32
+		var username string
+		var name string
+		var password string
+		var houseid int32
+
+		err := rows.Scan(&userid, &username, &name, &password, &houseid)
+		if err != nil {
+			return -1, err
+		}
+		// do work here
+		count++
+	}
+	return count, nil
 }
 
-func createNewHouse() (model.HouseTable, error) {}
+func createNewHouse() (model.HouseTable, error) {
+	ctx := context.Background()
 
-func createNewUser() (model.UserTable, error) {}
+	// Verify database is running
+	err := db.PingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tsqlMutation := fmt.Sprintf("INSERT INTO House VALUES()") // finish mutation
+
+	// Execute query
+	newHouse, err := db.QueryContext(ctx, tsqlMutation)
+	if err != nil {
+		return nil, err
+	}
+
+	defer newHouse.Close()
+
+	// finish here
+}
+
+func createNewUser() (model.UserTable, error) {
+	ctx := context.Background()
+
+	// Verify database is running
+	err := db.PingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	tsqlMutation := fmt.Sprintf("INSERT INTO Users VALUES()") // finish mutation
+
+	// Execute query
+	newUser, err := db.QueryContext(ctx, tsqlMutation)
+	if err != nil {
+		return nil, err
+	}
+
+	defer newUser.Close()
+
+	// finish here
+}
