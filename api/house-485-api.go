@@ -13,11 +13,11 @@ import (
 )
 
 var db *sql.DB
-var server = ""
+var server = "DESKTOP-K7IIMGF"
 var port = 1433
-var user = ""
-var password = ""
-var database = ""
+var user = "capstoneapiuser"
+var password = "CapstoneApiUser2022!"
+var database = "House485Database"
 
 func main() {
 	// Build connection string
@@ -50,9 +50,45 @@ func mwCheck(f func(w http.ResponseWriter, r *http.Request)) func(w http.Respons
 	return func(w http.ResponseWriter, r *http.Request) {}
 }
 
-func readHouseTable() (int, error) {}
+func readHouseTable() (int, error) {
+	ctx := context.Background()
 
-func readUserTable() (int, error) {}
+	// Verify database is running
+	err := db.PingContext(ctx)
+	if err != nil {
+		return -1, err
+	}
+
+	tsqlQuery := fmt.Sprintf("SELECT * FROM HouseTable")
+
+	// Execute query
+	rows, err := db.QueryContext(ctx, tsqlQuery)
+	if err != nil {
+		return -1, err
+	}
+
+	defer rows.Close()
+
+	var count int
+	for rows.Next() {
+		var houseid int32
+		var price float32
+		var houseLocation string
+		var distance float32
+
+		err := rows.Scan(&houseid, &price, &houseLocation, &distance)
+		if err != nil {
+			return -1, err
+		}
+		// do work here
+		count++
+	}
+	return count, nil
+}
+
+func readUserTable() (int, error) {
+	return -1, nil
+}
 
 func createNewHouse() (model.HouseTable, error) {}
 
