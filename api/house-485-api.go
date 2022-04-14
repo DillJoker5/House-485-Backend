@@ -21,7 +21,7 @@ var database = "House485Database"
 
 func main() {
 	// Build connection string
-	connectionString  := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%s;database=%s;", server, user, password, port, database)
+	connectionString  := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s;", server, user, password, port, database)
 	var err error
 
 	// Create connection
