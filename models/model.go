@@ -26,3 +26,15 @@ type UserTable struct {
 	Password string `json: "password"`
 	HouseId int32 `json: "houseid"`
 }
+
+type House struct {
+	Price float32 `json: "price"`
+	HouseLocation string `json: "houselocation"`
+	Distance float32 `json: "distance"`
+}
+
+type User struct {
+	Username string `json: "username"`
+	Name string `json: "name"`
+	Password string `json: "password"`
+}
