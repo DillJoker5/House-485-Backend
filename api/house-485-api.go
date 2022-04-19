@@ -251,6 +251,11 @@ func createNewUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getUpdateHouseInfo(w http.ResponseWriter, r *http.Request) (model.HouseFavorite) {
+	var updatedHouse model.HouseFavorite
+	return updatedHouse
+} // finish
+
 func updateHouseTable(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
@@ -261,14 +266,14 @@ func updateHouseTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Grab house that needs to be updated
-	var updateHouse model.HouseTable = getUpdateHouseInfo(w, r)
+	var updateHouse model.HouseFavorite = getUpdateHouseInfo(w, r)
 
 	var tsqlMutation string
 
-	if updateHouse.favorite {
-		// create new House entry
+	if updateHouse.Favorite {
+		tsqlMutation = fmt.Sprintf("INSERT INTO House VALUES(%d, %s, %d)", &updateHouse.Price, &updateHouse.HouseLocation, &updateHouse.Distance)
 	} else {
-		// delete House from House Table
+		tsqlMutation = fmt.Sprintf("DELETE FROM House WHERE HouseId=%d", &updateHouse.HouseId)
 	}
 
 	// Execute query
@@ -278,4 +283,28 @@ func updateHouseTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer houseRow.Close()
+
+	// Grab updated house
+	var rows []model.HouseTable
+	for houseRow.Next() {
+		var row model.HouseTable
+		houseRow.Scan(&row.HouseId, &row.Price, &row.HouseLocation, &row.Distance)
+		rows = append(rows, row)
+	}
+
+	// Throw error if house could not be grabbed
+	if rows == nil {
+		http.Error(w, "Cannot find newly update House", http.StatusBadRequest)
+	}
+
+	// Send response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	var response = model.HouseJsonResponse{ Type: "Success", Data: rows }
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 }
