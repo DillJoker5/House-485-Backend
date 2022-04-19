@@ -36,6 +36,7 @@ func main() {
 	router.HandleFunc("/home", mwCheck(readHouseTable)).Methods(http.MethodPost)
 	router.HandleFunc("/newFavorite", mwCheck(createNewHouse)).Methods(http.MethodPost)
 	router.HandleFunc("/registerUser", mwCheck(createNewUser)).Methods(http.MethodPost)
+	router.HandleFunc("/updateHouses", mwCheck(updateHouseTable)).Methods(http.MethodPost)
 
 	srv := &http.Server {
 		Addr: ":8000",
@@ -248,4 +249,33 @@ func createNewUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+}
+
+func updateHouseTable(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+
+	// Verify database is running
+	err := db.PingContext(ctx)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	// Grab house that needs to be updated
+	var updateHouse model.HouseTable = getUpdateHouseInfo(w, r)
+
+	var tsqlMutation string
+
+	if updateHouse.favorite {
+		// create new House entry
+	} else {
+		// delete House from House Table
+	}
+
+	// Execute query
+	houseRow, err := db.QueryContext(ctx, tsqlMutation)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+
+	defer houseRow.Close()
 }
