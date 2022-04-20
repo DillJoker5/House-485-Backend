@@ -10,6 +10,7 @@ import (
 	"context"
 	_"github.com/denisenkom/go-mssqldb"
 	"fmt"
+	//"github.com/google/uuid"
 )
 
 var db *sql.DB
@@ -32,11 +33,12 @@ func main() {
 
 	router := mux.NewRouter()
 
+	// Handle api requests
 	router.HandleFunc("/loginUser", mwCheck(readUserTable)).Methods(http.MethodPost)
 	router.HandleFunc("/home", mwCheck(readHouseTable)).Methods(http.MethodPost)
-	router.HandleFunc("/newFavorite", mwCheck(createNewHouse)).Methods(http.MethodPost)
-	router.HandleFunc("/registerUser", mwCheck(createNewUser)).Methods(http.MethodPost)
-	router.HandleFunc("/updateHouses", mwCheck(updateHouseTable)).Methods(http.MethodPost)
+	//router.HandleFunc("/newFavorite", mwCheck(createNewHouse)).Methods(http.MethodPost)
+	//router.HandleFunc("/registerUser", mwCheck(createNewUser)).Methods(http.MethodPost)
+	//router.HandleFunc("/updateHouses", mwCheck(updateHouseTable)).Methods(http.MethodPost)
 
 	srv := &http.Server {
 		Addr: ":8000",
@@ -50,9 +52,6 @@ func main() {
 
 func mwCheck(f func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Handle authentication
-		// if valid auth f(w, r)
-		// else send_error(w, r)
 		f(w, r)
 	}
 }
@@ -64,14 +63,16 @@ func readHouseTable(w http.ResponseWriter, r *http.Request) {
 	err := db.PingContext(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	tsqlQuery := fmt.Sprintf("SELECT HouseId, Price, HouseLocation, Distance FROM House")
+	tsqlQuery := "SELECT HouseId, Price, HouseLocation, Distance FROM House"
 
 	// Execute query
 	rows, err := db.QueryContext(ctx, tsqlQuery)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	defer rows.Close()
@@ -85,11 +86,9 @@ func readHouseTable(w http.ResponseWriter, r *http.Request) {
 	
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-
-	var response = model.HouseJsonResponse{ Type: "Success", Data: houses }
-	err = json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(houses)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
@@ -101,14 +100,16 @@ func readUserTable(w http.ResponseWriter, r *http.Request) {
 	err := db.PingContext(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	tsqlQuery := fmt.Sprintf("SELECT UserId, Username, Name, Password, HouseId FROM Users")
+	tsqlQuery := "SELECT UserId, Username, Name, Password, HouseId FROM Users"
 
 	// Execute query
 	rows, err := db.QueryContext(ctx, tsqlQuery)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	defer rows.Close()
@@ -122,15 +123,14 @@ func readUserTable(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-
-	var response = model.UserJsonResponse{ Type: "Success", Data: users}
-	err = json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(users)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
+/*
 func getHouseInfo(w http.ResponseWriter, r *http.Request) (model.House) {
 	var house model.House
 	r.ParseForm()
@@ -307,4 +307,4 @@ func updateHouseTable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-}
+}*/
