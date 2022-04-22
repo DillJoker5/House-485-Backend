@@ -10,7 +10,7 @@ import (
 	"context"
 	_"github.com/denisenkom/go-mssqldb"
 	"fmt"
-	//"github.com/google/uuid"
+	"github.com/google/uuid"
 )
 
 var db *sql.DB
@@ -53,8 +53,43 @@ func main() {
 
 func mwCheck(f func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		f(w, r)
+		if !validateUser(r) {
+			http.Error(w, "Unauthorized user", http.StatusForbidden)
+		} else {
+			f(w, r)
+		}
 	}
+}
+
+func validateUser(r *http.Request) bool {
+	ctx := context.Background()
+	
+	// Verify database is running
+	err := db.PingContext(ctx)
+	if err != nil {
+		return false
+	}
+
+	var s model.Session
+	err = json.NewDecoder(r.Body).Decode(&s)
+	if err != nil {
+		return false
+	}
+
+	if s.UserGuid == "" {
+		return false
+	}
+
+	tsqlQuery := fmt.Sprintf("SELECT SessionId FROM Sessions WHERE UserGuid='%s' AND IsActive=1;", s.UserGuid)
+
+	row := db.QueryRowContext(ctx, tsqlQuery)
+
+	var sid int32
+	if err = row.Scan(&sid); err != nil {
+		return false
+	}
+
+	return true
 }
 
 func ReadHouseTable(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +102,7 @@ func ReadHouseTable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tsqlQuery := "SELECT HouseId, Price, HouseLocation, Distance FROM House"
+	tsqlQuery := "SELECT HouseId, Price, HouseLocation, Distance FROM House;"
 
 	// Execute query
 	rows, err := db.QueryContext(ctx, tsqlQuery)
@@ -85,6 +120,7 @@ func ReadHouseTable(w http.ResponseWriter, r *http.Request) {
 		houses = append(houses, house)
 	}
 	
+	// Return response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(houses)
@@ -104,7 +140,7 @@ func ReadUserTable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tsqlQuery := "SELECT UserId, Username, Name, Password, HouseId FROM Users"
+	tsqlQuery := "SELECT UserId, Username, Name, Password, HouseId FROM Users;"
 
 	// Execute query
 	rows, err := db.QueryContext(ctx, tsqlQuery)
@@ -122,6 +158,7 @@ func ReadUserTable(w http.ResponseWriter, r *http.Request) {
 		users = append(users, user)
 	}
 
+	// Return response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(users)
@@ -159,7 +196,41 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No Login Found. Please register an account!", http.StatusUnauthorized)
 	}
 
-	err = json.NewEncoder(w).Encode() // finish here
+	// query session with user id, check if isActive is 1. if that's true then you get a single row then you send a message saying you are already logged in
+	tsqlQuery = fmt.Sprintf("SELECT SessionId, IsActive FROM Session WHERE UserId='%d';", uId)
+	aActiveRows, err := db.QueryContext(ctx, tsqlQuery)
+
+	var aSess []model.Session
+	for aActiveRows.Next() {
+		var aS model.Session
+		aActiveRows.Scan(&aS.SessionId, &aS.IsActive)
+		if aS.IsActive == true {
+			http.Error(w, "You are already logged in!", http.StatusForbidden)
+			return
+		}
+		aSess = append(aSess, aS)
+	}
+
+	// Log user & create session
+	guid := uuid.New()
+	tsqlQuery = fmt.Sprintf("INSERT INTO Session VALUES(%d, '%s', 1", uId, guid) // finish
+	result, err := db.ExecContext(ctx, tsqlQuery)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil || count != 1 {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	response := model.JsonLoginResponse{ Message: "Logged In", Type: "Success", UserGuid: guid.String() }
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -201,11 +272,31 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	row := db.QueryRowContext(ctx, tsqlQuery)
 
 	var uId int32
-	if err = row.Scan(&uId); err == nil { // check
+	if err = row.Scan(&uId); err == nil {
 		http.Error(w, "Login information found. Please log into your account!", http.StatusUnauthorized)
+		return
 	}
 
-	err = json.NewEncoder(w).Encode() // finish here
+	// Login user by creating a session
+	guid := uuid.New()
+	tsqlQuery = fmt.Sprintf("INSERT INTO Sessions VALUES (%d, '%s', 1", uId, guid)
+	result, err := db.ExecContext(ctx, tsqlQuery)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil || count != 1 {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	response := model.JsonLoginResponse{ Message: "Logged In", Type: "Success", UserGuid: guid.String() }
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -217,6 +308,28 @@ func HouseFavorites(w http.ResponseWriter, r *http.Request) {
 
 	// Verify database is running
 	err := db.PingContext(ctx)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Grab all houses in House Table
+	tsqlQuery := "SELECT HouseId, Address, Location, Distance FROM House;"
+	hRows, err := db.QueryContext(ctx, tsqlQuery)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	defer hRows.Close()
+
+	// finish
+
+	// Return response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	response := model.HouseJsonResponse{ Message: "", Type: "Success", Data: [] }
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
