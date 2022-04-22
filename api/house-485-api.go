@@ -34,11 +34,12 @@ func main() {
 	router := mux.NewRouter()
 
 	// Handle api requests
-	router.HandleFunc("/loginUser", mwCheck(readUserTable)).Methods(http.MethodPost)
-	router.HandleFunc("/home", mwCheck(readHouseTable)).Methods(http.MethodPost)
-	//router.HandleFunc("/newFavorite", mwCheck(createNewHouse)).Methods(http.MethodPost)
-	//router.HandleFunc("/registerUser", mwCheck(createNewUser)).Methods(http.MethodPost)
-	//router.HandleFunc("/updateHouses", mwCheck(updateHouseTable)).Methods(http.MethodPost)
+	router.HandleFunc("/readUser", mwCheck(ReadUserTable)).Methods(http.MethodPost)
+	router.HandleFunc("/home", mwCheck(ReadHouseTable)).Methods(http.MethodPost)
+	router.HandleFunc("/login", mwCheck(Login)).Methods(http.MethodPost)
+	router.HandleFunc("/logout", mwCheck(Logout)).Methods(http.MethodPost)
+	router.HandleFunc("/register", mwCheck(Register)).Methods(http.MethodPost)
+	router.HandleFunc("/favorite", mwCheck(HouseFavorites)).Methods(http.MethodPost)
 
 	srv := &http.Server {
 		Addr: ":8000",
@@ -56,7 +57,7 @@ func mwCheck(f func(w http.ResponseWriter, r *http.Request)) func(w http.Respons
 	}
 }
 
-func readHouseTable(w http.ResponseWriter, r *http.Request) {
+func ReadHouseTable(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	// Verify database is running
@@ -93,7 +94,7 @@ func readHouseTable(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func readUserTable(w http.ResponseWriter, r *http.Request) {
+func ReadUserTable(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	// Verify database is running
@@ -130,181 +131,94 @@ func readUserTable(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-/*
-func getHouseInfo(w http.ResponseWriter, r *http.Request) (model.House) {
-	var house model.House
-	r.ParseForm()
-	if r.Form == nil || r.Form["Price"] == nil || r.Form["HouseLocation"] == nil || r.Form["Distance"] == nil {
-		http.Error(w, "Cannot Access House Information from Form", http.StatusInternalServerError)
-	} else {
-		house.Price = r.Form["Price"]
-		house.HouseLocation = r.Form["HouseLocation"]
-		house.Distance = r.Form["Distance"]
+func Login(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+
+	// Verify Database is running
+	err := db.PingContext(ctx)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	return house
+
+	var u model.UserTable
+
+	err = json.NewDecoder(r.Body).Decode(&u)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Check for valid login
+	tsqlQuery := fmt.Sprintf("SELECT UserId FROM Users WHERE Username='%s' AND Name='%s' AND Password='%s';", u.Username, u.Name, u.Password)
+
+	row := db.QueryRowContext(ctx, tsqlQuery)
+
+	var uId int32
+	if err = row.Scan(&uId); err != nil {
+		http.Error(w, "No Login Found. Please register an account!", http.StatusUnauthorized)
+	}
+
+	err = json.NewEncoder(w).Encode() // finish here
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
-func getUserInfo(w http.ResponseWriter, r *http.Request) (model.User) {
-	var user model.User
-	r.ParseForm()
-	if r.Form == nil || r.Form["Username"] == nil || r.Form["Name"] == nil || r.Form["Password"] == nil {
-		http.Error(w, "Cannot Access User Information from Form", http.StatusInternalServerError)
-	} else {
-		user.Username = r.Form["Username"]
-		user.Name = r.Form["Name"]
-		user.Password = r.Form["Password"]
-	}
-	return user
-}
-
-func createNewHouse(w http.ResponseWriter, r *http.Request) {
+func Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	// Verify database is running
 	err := db.PingContext(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-
-	// Build new house
-	var newHouse model.House = getHouseInfo(w, r)
-
-	tsqlMutation := fmt.Sprintf("INSERT INTO House VALUES(%d, %s, %d)", &newHouse.Price, &newHouse.HouseLocation, &newHouse.Distance)
-
-	// Execute query
-	newHouseRow, err := db.QueryContext(ctx, tsqlMutation)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
-
-	defer newHouseRow.Close()
-
-	// Grab new house
-	var rows []model.HouseTable
-	for newHouseRow.Next() {
-		var row model.HouseTable
-		newHouseRow.Scan(&row.HouseId, &row.Price, &row.HouseLocation, &row.Distance)
-		rows = append(rows, row)
-	}
-
-	// Throw error if house could not be grabbed
-	if rows == nil {
-		http.Error(w, "Cannot find newly created House", http.StatusBadRequest)
-	}
-
-	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	var response = model.HouseJsonResponse{ Type: "Success", Data: rows }
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 }
 
-func createNewUser(w http.ResponseWriter, r *http.Request) {
+func Register(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	// Verify database is running
 	err := db.PingContext(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	
-	// Build new user from register form
-	var newUser model.User = getUserInfo(w, r)
 
-	tsqlMutation := fmt.Sprintf("INSERT INTO Users VALUES(%s, %s, %s)", &newUser.Username, &newUser.Name, &newUser.Password)
+	var u model.UserTable
 
-	// Execute query
-	newUserRow, err := db.QueryContext(ctx, tsqlMutation)
+	err = json.NewDecoder(r.Body).Decode(&u)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	defer newUserRow.Close()
+	// Check user info isn't in User Table
+	tsqlQuery := fmt.Sprintf("SELECT UserId FROM Users WHERE Username='%s' AND Name='%s' AND Password='%s';", u.Username, u.Name, u.Password)
 
-	// Grab new user
-	var rows []model.UserTable
-	for newUserRow.Next() {
-		var row model.UserTable
-		newUserRow.Scan(&row.UserId, &row.Username, &row.Name, &row.Password, &row.HouseId)
-		rows = append(rows, row)
+	row := db.QueryRowContext(ctx, tsqlQuery)
+
+	var uId int32
+	if err = row.Scan(&uId); err == nil { // check
+		http.Error(w, "Login information found. Please log into your account!", http.StatusUnauthorized)
 	}
 
-	// Throw error if user could not be grabbed
-	if rows == nil {
-		http.Error(w, "Cannot register your account with current information", http.StatusBadRequest)
-	}
-
-	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	var response = model.UserJsonResponse{ Type: "Success", Data: rows }
-	err = json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode() // finish here
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func getUpdateHouseInfo(w http.ResponseWriter, r *http.Request) (model.HouseFavorite) {
-	var updatedHouse model.HouseFavorite
-	return updatedHouse
-} // finish
-
-func updateHouseTable(w http.ResponseWriter, r *http.Request) {
+func HouseFavorites(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	// Verify database is running
 	err := db.PingContext(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-
-	// Grab house that needs to be updated
-	var updateHouse model.HouseFavorite = getUpdateHouseInfo(w, r)
-
-	var tsqlMutation string
-
-	if updateHouse.Favorite {
-		tsqlMutation = fmt.Sprintf("INSERT INTO House VALUES(%d, %s, %d)", &updateHouse.Price, &updateHouse.HouseLocation, &updateHouse.Distance)
-	} else {
-		tsqlMutation = fmt.Sprintf("DELETE FROM House WHERE HouseId=%d", &updateHouse.HouseId)
-	}
-
-	// Execute query
-	houseRow, err := db.QueryContext(ctx, tsqlMutation)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
-
-	defer houseRow.Close()
-
-	// Grab updated house
-	var rows []model.HouseTable
-	for houseRow.Next() {
-		var row model.HouseTable
-		houseRow.Scan(&row.HouseId, &row.Price, &row.HouseLocation, &row.Distance)
-		rows = append(rows, row)
-	}
-
-	// Throw error if house could not be grabbed
-	if rows == nil {
-		http.Error(w, "Cannot find newly update House", http.StatusBadRequest)
-	}
-
-	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	var response = model.HouseJsonResponse{ Type: "Success", Data: rows }
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-}*/
+}
