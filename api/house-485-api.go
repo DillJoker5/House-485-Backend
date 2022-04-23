@@ -38,8 +38,8 @@ func main() {
 	router.HandleFunc("/home", mwCheck(ReadHouseTable)).Methods(http.MethodPost)
 	router.HandleFunc("/login", mwCheck(Login)).Methods(http.MethodPost)
 	router.HandleFunc("/logout", mwCheck(Logout)).Methods(http.MethodPost)
-	router.HandleFunc("/register", mwCheck(Register)).Methods(http.MethodPost)
-	router.HandleFunc("/favorite", mwCheck(HouseFavorites)).Methods(http.MethodPost)
+	router.HandleFunc("/register", Register).Methods(http.MethodPost)
+	//router.HandleFunc("/favorite", mwCheck(HouseFavorites)).Methods(http.MethodPost)
 
 	srv := &http.Server {
 		Addr: ":8000",
@@ -213,7 +213,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	// Log user & create session
 	guid := uuid.New()
-	tsqlQuery = fmt.Sprintf("INSERT INTO Session VALUES(%d, '%s', 1", uId, guid) // finish
+	tsqlQuery = fmt.Sprintf("INSERT INTO Session VALUES(%d, '%s', 1)", uId, guid) // finish
 	result, err := db.ExecContext(ctx, tsqlQuery)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -242,6 +242,45 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 
 	// Verify database is running
 	err := db.PingContext(ctx)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Check if there is a valid guid with the current session
+	var sess model.Session
+	err = json.NewDecoder(r.Body).Decode(&sess)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if sess.UserGuid == "" {
+		http.Error(w, "No User Guid provided with the given session.", http.StatusBadRequest)
+		return
+	}
+
+	tsqlQuery := fmt.Sprintf("UPDATE Session SET IsActive=0 WHERE UserGuid='%s';", sess.UserGuid)
+
+	// Execute query
+	result, err := db.ExecContext(ctx, tsqlQuery)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil || count != 1 {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Return response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	response := model.GenericJsonResponse{ Message: "Successfully logged out of account!", Type: "Success" }
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -277,12 +316,12 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Login user by creating a session
-	guid := uuid.New()
-	tsqlQuery = fmt.Sprintf("INSERT INTO Sessions VALUES (%d, '%s', 1", uId, guid)
+	// Create User in User Table
+	tsqlQuery = fmt.Sprintf("INSERT INTO Users VALUES('%s', '%s', '%s', %d);", u.Username, u.Name, u.Password, u.HouseId)
+
 	result, err := db.ExecContext(ctx, tsqlQuery)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Trouble creating your account. Please try again later!", http.StatusInternalServerError)
 		return
 	}
 
@@ -295,7 +334,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	response := model.JsonLoginResponse{ Message: "Logged In", Type: "Success", UserGuid: guid.String() }
+	response := model.GenericJsonResponse{ Message: "Successfully registered your account!", Type: "Success" }
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -303,7 +342,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HouseFavorites(w http.ResponseWriter, r *http.Request) {
+/*func HouseFavorites(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
 	// Verify database is running
@@ -334,4 +373,4 @@ func HouseFavorites(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-}
+}*/
