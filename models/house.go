@@ -5,12 +5,7 @@ type HouseTable struct {
 	Price float32 `json: "price"`
 	HouseLocation string `json: "houselocation"`
 	Distance float32 `json: "distance"`
-}
-
-type House struct {
-	Price float32 `json: "price"`
-	HouseLocation string `json: "houselocation"`
-	Distance float32 `json: "distance"`
+	UserId int32 `json: "userid"`
 }
 
 type HouseFavorite struct {
@@ -18,5 +13,7 @@ type HouseFavorite struct {
 	Price float32 `json: "price"`
 	HouseLocation string `json: "houselocation"`
 	Distance float32 `json: "distance"`
+	UserId int32 `json: "userid"`
 	Favorite bool `json: "favorite"`
+	UserGuid string `json: "userguid"`
 }
