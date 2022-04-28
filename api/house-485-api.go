@@ -35,7 +35,7 @@ func main() {
 
 	// Handle api requests
 	router.HandleFunc("/readUser", ReadUserTable).Methods(http.MethodPost)
-	router.HandleFunc("/home", mwCheck(ReadHouseTable)).Methods(http.MethodPost)
+	router.HandleFunc("/home", ReadHouseTable).Methods(http.MethodPost)
 	router.HandleFunc("/login", Login).Methods(http.MethodPost)
 	router.HandleFunc("/logout", Logout).Methods(http.MethodPost)
 	router.HandleFunc("/register", Register).Methods(http.MethodPost)
@@ -71,19 +71,19 @@ func validateUser(r *http.Request) bool {
 		return false
 	}
 
-	var s model.Session
-	err = json.NewDecoder(r.Body).Decode(&s)
+	// Grab userGuid from header
+	uGuid := r.Header.Get("userguid")
+	if uGuid == "" {
+		return false
+	}
+
+	tsqlQuery := fmt.Sprintf("SELECT SessionId FROM Session WHERE UserGuid='%s' AND IsActive=1;", uGuid)
+
+	// Execute Query
+	row := db.QueryRowContext(ctx, tsqlQuery)
 	if err != nil {
 		return false
 	}
-
-	if s.UserGuid == "" {
-		return false
-	}
-
-	tsqlQuery := fmt.Sprintf("SELECT SessionId FROM Session WHERE UserGuid='%s' AND IsActive=1;", s.UserGuid)
-
-	row := db.QueryRowContext(ctx, tsqlQuery)
 
 	var sid int32
 	if err = row.Scan(&sid); err != nil {
@@ -188,30 +188,25 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for valid login
-	tsqlQuery := fmt.Sprintf("SELECT UserId FROM Users WHERE Username='%s' AND Name='%s' AND Password='%s';", u.Username, u.Name, u.Password)
+	tsqlQuery := fmt.Sprintf("SELECT UserId FROM Users WHERE Username='%s' AND Password='%s';", u.Username, u.Password)
 
 	row := db.QueryRowContext(ctx, tsqlQuery)
 
 	var uId int32
 	if err = row.Scan(&uId); err != nil {
 		http.Error(w, "No Login Found. Please register an account!", http.StatusUnauthorized)
+		return
 	}
 
-	// query session with user id, check if isActive is 1. if that's true then you get a single row then you send a message saying you are already logged in
-	tsqlQuery = fmt.Sprintf("SELECT SessionId, IsActive FROM Session WHERE UserId='%d';", uId)
-	aActiveRows, err := db.QueryContext(ctx, tsqlQuery)
+	tsqlQuery = fmt.Sprintf("SELECT SessionId FROM Session WHERE UserId='%d' AND IsActive=1;", uId)
+	aActiveRow := db.QueryRowContext(ctx, tsqlQuery)
 
-	defer aActiveRows.Close()
-
-	var aSess []model.Session
-	for aActiveRows.Next() {
-		var aS model.Session
-		aActiveRows.Scan(&aS.SessionId, &aS.IsActive)
-		if aS.IsActive == true {
-			http.Error(w, "You are already logged in!", http.StatusForbidden)
-			return
-		}
-		aSess = append(aSess, aS)
+	// Check is user is already logged in
+	var sId int32
+	err = aActiveRow.Scan(&sId)
+	if sId > 0 {
+		http.Error(w, "You are already logged into your account!", http.StatusForbidden)
+		return
 	}
 
 	// Log user & create session
