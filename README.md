@@ -1,5 +1,5 @@
 # House-485-Backend
-Complete api backend for the House-485-Website. Backend/APIs are completely built off of Go.
+Complete api backend for the House-485-Website. Backend logic & Api endpoints are completely built off of Go.
 
 ## Description
 This repository holds all of the backend logic, api endpoints, and route endpoints for the [House-485-Website](https://github.com/DillJoker5/House-485-Website).
