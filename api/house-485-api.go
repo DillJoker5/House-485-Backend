@@ -73,15 +73,35 @@ func main() {
 	}
 }
 
+/*
+	mwCheck Function
+
+	This function makes sure that the user is validated before running the passed in function.
+	If the user is unauthorized, it returns an error detailing that the user isn't authorized.
+	If the user is authorized, it calls the passed in function.
+*/
+
 func mwCheck(f func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	// Return passed in function
 	return func(w http.ResponseWriter, r *http.Request) {
+		// if user is not authorized, throw unauthorized error
 		if !validateUser(r) {
 			http.Error(w, "Unauthorized user", http.StatusForbidden)
 		} else {
+			// call function since the user is authorized
 			f(w, r)
 		}
 	}
 }
+
+/*
+	validateUser Function
+
+	This function checks if the UserGuid header is passed into the request.
+	If the UserGuid is empty, not passed in, or a session was not created with the passed
+	in UserGuid, it will return false signaling an unauthorized user.
+	If there is an active session with the UserGuid, it will return true.
+*/
 
 func validateUser(r *http.Request) bool {
 	ctx := context.Background()
@@ -106,6 +126,7 @@ func validateUser(r *http.Request) bool {
 		return false
 	}
 
+	// Scan for the userId
 	var sid int32
 	if err = row.Scan(&sid); err != nil {
 		return false
