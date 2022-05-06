@@ -9,6 +9,7 @@ type JsonLoginResponse struct {
 	Type string `json: "type"`
 	Message string `json: "message"`
 	UserGuid string `json: "userguid"`
+	UserId int32 `json: "userid"`
 }
 
 type HouseJsonResponse struct {

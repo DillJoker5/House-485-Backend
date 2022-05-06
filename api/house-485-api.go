@@ -34,13 +34,13 @@ func main() {
 	router := mux.NewRouter()
 
 	// Handle api requests
-	router.HandleFunc("/readUser", ReadUserTable).Methods(http.MethodPost)
-	router.HandleFunc("/home", ReadHouseTable).Methods(http.MethodPost)
+	router.HandleFunc("/readUser", ReadUserTable).Methods(http.MethodPost, http.MethodOptions)
+	router.HandleFunc("/home", ReadHouseTable).Methods(http.MethodPost, http.MethodOptions)
 	router.HandleFunc("/login", Login).Methods(http.MethodPost)
-	router.HandleFunc("/logout", Logout).Methods(http.MethodPost)
+	router.HandleFunc("/logout", mwCheck(Logout)).Methods(http.MethodPost)
 	router.HandleFunc("/register", Register).Methods(http.MethodPost)
-	router.HandleFunc("/favorite", HouseFavorites).Methods(http.MethodPost)
-	router.HandleFunc("/updateFavorite", UpdateFavorite).Methods(http.MethodPost)
+	router.HandleFunc("/favorite", mwCheck(HouseFavorites)).Methods(http.MethodPost)
+	router.HandleFunc("/updateFavorite", mwCheck(UpdateFavorite)).Methods(http.MethodPost)
 
 	srv := &http.Server {
 		Addr: ":8000",
@@ -123,6 +123,9 @@ func ReadHouseTable(w http.ResponseWriter, r *http.Request) {
 	
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS, POST")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(houses)
 	if err != nil {
@@ -161,6 +164,9 @@ func ReadUserTable(w http.ResponseWriter, r *http.Request) {
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS, POST")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(users)
 	if err != nil {
@@ -179,7 +185,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var u model.UserTable
+	var u model.User
 
 	err = json.NewDecoder(r.Body).Decode(&u)
 	if err != nil {
@@ -226,8 +232,11 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS, POST")
 	w.WriteHeader(http.StatusOK)
-	response := model.JsonLoginResponse{ Message: "Logged In", Type: "Success", UserGuid: guid.String() }
+	response := model.JsonLoginResponse{ Message: "Logged In", Type: "Success", UserGuid: guid.String(), UserId: uId }
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -276,6 +285,9 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS, POST")
 	w.WriteHeader(http.StatusOK)
 	response := model.GenericJsonResponse{ Message: "Successfully logged out of account!", Type: "Success" }
 	err = json.NewEncoder(w).Encode(response)
@@ -295,7 +307,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var u model.UserTable
+	var u model.RegisterUser
 
 	err = json.NewDecoder(r.Body).Decode(&u)
 	if err != nil {
@@ -331,6 +343,9 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS, POST")
 	w.WriteHeader(http.StatusOK)
 	response := model.GenericJsonResponse{ Message: "Successfully registered your account!", Type: "Success" }
 	err = json.NewEncoder(w).Encode(response)
@@ -363,6 +378,10 @@ func HouseFavorites(w http.ResponseWriter, r *http.Request) {
 	// Decode json body
 	var houseF model.HouseFavorite
 	err = json.NewDecoder(r.Body).Decode(&houseF)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	// Grab houses attached to passed in userId
 	tsqlQuery = fmt.Sprintf("SELECT HouseId, Price, HouseLocation, Distance, UserId FROM House WHERE UserId=%d;", houseF.UserId)
@@ -389,6 +408,9 @@ func HouseFavorites(w http.ResponseWriter, r *http.Request) {
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS, POST")
 	w.WriteHeader(http.StatusOK)
 	response := model.HouseJsonResponse{ Message: "", Type: "Success", Data: favorites }
 	err = json.NewEncoder(w).Encode(response)
@@ -453,6 +475,9 @@ func UpdateFavorite(w http.ResponseWriter, r *http.Request) {
 
 	// Return response
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS, POST")
 	w.WriteHeader(http.StatusOK)
 	response := model.GenericJsonResponse{ Message: "Successfully updated your bookmark!", Type: "Success" }
 	err = json.NewEncoder(w).Encode(response)
