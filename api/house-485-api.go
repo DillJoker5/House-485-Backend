@@ -1,5 +1,12 @@
+/*
+	Written by Dylan Chirigotis
+	All API endpoints and backend logic for the House-485-Website
+*/
+
+// Main Package
 package main
 
+// All api imports
 import (
 	"encoding/json"
 	"log"
@@ -13,13 +20,22 @@ import (
 	"github.com/google/uuid"
 )
 
+// Global database variable
 var db *sql.DB
+
+// Database connection parameters
 var server = "DESKTOP-K7IIMGF"
 var port = 1433
 var user = "capstoneapiuser"
 var password = "CapstoneApiUser2022!"
 var database = "House485Database"
 
+/*
+	Main Function
+	
+	This function creates the connection to the database, creates and hosts the server, creates all
+	API endpoints, and handles all of the API endpoints
+*/
 func main() {
 	// Build connection string
 	connectionString  := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d;database=%s;", server, user, password, port, database)
@@ -31,22 +47,27 @@ func main() {
 		log.Fatal("Error connecting:", err.Error())
 	}
 
+	// Create router
 	router := mux.NewRouter()
 
-	// Handle api requests
+	// Handle api requests without middleware check
 	router.HandleFunc("/readUser", ReadUserTable).Methods(http.MethodPost, http.MethodOptions)
 	router.HandleFunc("/home", ReadHouseTable).Methods(http.MethodPost, http.MethodOptions)
 	router.HandleFunc("/login", Login).Methods(http.MethodPost)
-	router.HandleFunc("/logout", mwCheck(Logout)).Methods(http.MethodPost)
 	router.HandleFunc("/register", Register).Methods(http.MethodPost)
+
+	// Handle api requests with middleware check
+	router.HandleFunc("/logout", mwCheck(Logout)).Methods(http.MethodPost)
 	router.HandleFunc("/favorite", mwCheck(HouseFavorites)).Methods(http.MethodPost)
 	router.HandleFunc("/updateFavorite", mwCheck(UpdateFavorite)).Methods(http.MethodPost)
 
+	// Create server with router and localhost:8000 address
 	srv := &http.Server {
 		Addr: ":8000",
 		Handler: router,
 	}
 
+	// Host and start the server
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("listen: %s\n", err)
 	}
