@@ -34,7 +34,7 @@ var database = "House485Database"
 	Main Function
 	
 	This function creates the connection to the database, creates and hosts the server, creates all
-	API endpoints, and handles all of the API endpoints
+	API endpoints, and handles all of the API endpoints.
 */
 func main() {
 	// Build connection string
@@ -86,11 +86,11 @@ func main() {
 func mwCheck(f func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	// Return passed in function
 	return func(w http.ResponseWriter, r *http.Request) {
-		// if user is not authorized, throw unauthorized error
+		// If user is not authorized, throw unauthorized error
 		if !validateUser(r) {
 			http.Error(w, "Unauthorized user", http.StatusForbidden)
 		} else {
-			// call function since the user is authorized
+			// Call function since the user is authorized
 			f(w, r)
 		}
 	}
