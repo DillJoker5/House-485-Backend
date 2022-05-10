@@ -1,5 +1,5 @@
 # House-485-Backend
-Complete api backend for the House-485-Website. Backend logic & Api endpoints are completely built off of Go.
+Complete api backend for the House-485-Website. Backend logic and api endpoints are completely built off of Go/Golang.
 
 ## Description
 This repository holds all of the backend logic, api endpoints, and route endpoints for the [House-485-Website](https://github.com/DillJoker5/House-485-Website).
@@ -28,7 +28,7 @@ You will need the following things installed and working on your device before r
 * Clone the repository in the newly created folder
 * Run the [House-485-Database](https://github.com/DillJoker5/House-485-Database) and make sure that you are able to log in with the user. See [here](https://github.com/DillJoker5/House-485-Database) for help
 * Open a new terminal in the directory of the repository
-* Before running the repository, run the following command: go mod tidy. This command will install all of the required imports for this repository.
+* Before running the repository, run the following command: go mod tidy. This command will install all of the required imports for this repository
 * In the same terminal, run the following command to start the server: go run api/house-485-api.go
 * Optional: test an api endpoint in Postman using the URL https://localhost:8000/
 
